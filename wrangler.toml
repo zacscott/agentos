@@ -1,0 +1,37 @@
+name = "agentos"
+main = "src/worker.js"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Deploys to https://agentos.<your-subdomain>.workers.dev. To serve it on
+# your own hostname, uncomment this and set the pattern:
+# routes = [
+#   { pattern = "agentos.example.com", custom_domain = true }
+# ]
+
+# Your Markdown repository, copied into a private bucket. The layout is:
+#
+#   AGENTS.md
+#   reference/principles/...
+#   reference/languages/...
+#   skills/...
+[[r2_buckets]]
+binding = "CONTENT"
+bucket_name = "agentos"
+
+[vars]
+# Maximum number of results returned by the search tool.
+SEARCH_LIMIT = "10"
+# The document returned by the brief tool. Keep it in the bucket root.
+ENTRY_FILE = "AGENTS.md"
+
+# Secrets (dashboard > Settings > Variables and Secrets, or wrangler secret put):
+#   One secret PER CLIENT, named API_KEY_<CLIENT>, value = bearer token:
+#     API_KEY_CLAUDE, API_KEY_CODEX, ...
+#   Every valid key can read everything in the bucket.
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true

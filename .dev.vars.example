@@ -1,0 +1,2 @@
+# Local development only. Copy to .dev.vars.
+API_KEY_LOCAL=local-dev-token-0123456789
