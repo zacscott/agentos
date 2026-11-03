@@ -20,9 +20,7 @@ binding = "CONTENT"
 bucket_name = "agentos"
 
 [vars]
-# Maximum number of results returned by the search tool.
-SEARCH_LIMIT = "10"
-# The document returned by the brief tool. Keep it in the bucket root.
+# The document returned by brief. Keep it in the bucket root.
 ENTRY_FILE = "AGENTS.md"
 
 # Secrets (dashboard > Settings > Variables and Secrets, or wrangler secret put):

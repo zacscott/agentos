@@ -3,13 +3,12 @@
 Serve a private Markdown operating manual to AI agents over MCP.
 
 `agentos` reads a bucket containing a document at `AGENTS.md`, reference
-documents under `reference/`, and procedures under `skills/`. It exposes three
+documents under `reference/`, and procedures under `skills/`. It exposes two
 read-only tools:
 
 | Tool | Arguments | |
 |---|---|---|
-| `brief` | — | Return the entry document unchanged. |
-| `search` | `query?`, `kind?`, `limit?` | Search reference and skill documents, or browse the index. |
+| `brief` | — | Return the entry document, unchanged, followed by a catalogue of readable documents. |
 | `read` | `id` | Return one document by its repository path. |
 
 The bucket is read fresh on every request, so edits take effect immediately.
@@ -33,43 +32,19 @@ skills/writing.md
 `AGENTS.md` owns the behaviour — when to call each tool and which files to
 load. The server only provides access.
 
-## Bucket layout
-
-Markdown files only.
-
-- `AGENTS.md` — returned by `brief`
-- `reference/**/*.md` — kind `reference`
-- `skills/**/*.md` — kind `skills`
-
-File ids are repository paths, e.g. `skills/voice.md`. Paths are limited to
-lowercase letters, numbers, hyphens, underscores and directories.
-
 ## Tools
 
 ### `brief()`
 
-Returns the exact contents of the configured `ENTRY_FILE` (default
-`AGENTS.md`).
-
-### `search()`
-
-Searches file paths, titles, frontmatter names, descriptions, headings and
-body text.
-
-```json
-{ "query": "review feedback", "kind": "reference", "limit": 5 }
-```
-
-Omitting `query` returns the catalogue in path order. `kind` must be
-`reference` or `skills`.
-
-Results include an id, kind, title, description and matching snippet. Use
-`read` with that id to load the full document.
+Returns the configured entry document (default `AGENTS.md`) exactly as stored,
+followed by each readable document grouped by kind, with its title and
+description. This is a generated listing of what the bucket contains, not a
+rewritten version of the manual.
 
 ### `read()`
 
-Returns the full Markdown file for one returned id. It can only read files
-that exist under the content directories.
+Returns the full Markdown file for one id listed in the catalogue. It can only
+read files that exist under `reference/` or `skills/`.
 
 ## Deploy
 
@@ -98,12 +73,12 @@ cp .dev.vars.example .dev.vars
 npm run dev
 ```
 
-`npm test` covers the search and read behaviour against an in-memory bucket.
+`npm test` covers the catalogue and read behaviour against an in-memory
+bucket.
 
 ## Configuration
 
 - `ENTRY_FILE` — the document returned by `brief` (default: `AGENTS.md`)
-- `SEARCH_LIMIT` — maximum search results (default: `10`)
 - `API_KEY_*` — bearer secrets, one per client
 - `CONTENT` — the R2 binding; create the bucket and keep the binding name
 
@@ -120,5 +95,6 @@ grows that feature.
 
 ## Notes
 
-Frontmatter is used only for search metadata, not for access control or
-content rewriting. A document is returned exactly as stored.
+Frontmatter is used only to identify and catalogue documents, not to rewrite
+their content or to control access. Every file returned by `brief` and
+`read` is exactly as stored in the bucket.

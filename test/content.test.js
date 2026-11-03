@@ -4,7 +4,7 @@ import {
   KINDS,
   contentMeta,
   listContent,
-  searchContent,
+  briefText,
   readContent
 } from "../src/content.js";
 import { instructions } from "../src/mcp.js";
@@ -31,57 +31,40 @@ function bucket() {
 }
 
 function env(overrides = {}) {
-  const mem = bucket();
-  mem.put("AGENTS.md", `# Working with me
+  const content = bucket();
+  content.put("AGENTS.md", `# Working with me
 
 Use the rules and skills in this manual.
 `);
-  mem.put("reference/principles/code-design.md", `---
+  content.put("reference/principles/code-design.md", `---
 name: code-design
 description: Naming and abstraction choices
 ---
 
 # Code design
-
-Small helpers live on the domain class.
 `);
-  mem.put("reference/principles/security.md", `---
-name: security
-description: Security rules
----
-
-# Security
-
-Never print secrets into a transcript.
-`);
-  mem.put("reference/languages/php.md", `---
+  content.put("reference/languages/php.md", `---
 name: php
 description: PHP style and tooling
 ---
 
 # PHP
-
-Use strict types.
 `);
-  mem.put("skills/voice.md", `---
+  content.put("skills/voice.md", `---
 name: voice
 description: How to write as Zac
 ---
 
 # Voice
-
-Plain words.
 `);
-  mem.put("skills/writing.md", `---
+  content.put("skills/writing.md", `---
 name: writing
 description: Writing for people
 ---
 
 # Writing
-
-Stable facts over guesses.
 `);
-  return { CONTENT: mem, ...overrides };
+  return { CONTENT: content, ...overrides };
 }
 
 test("frontmatter can be read and falls back to the first heading", () => {
@@ -98,60 +81,52 @@ test("frontmatter can be read and falls back to the first heading", () => {
   });
 });
 
+test("brief returns the unchanged entry document and the catalogue", async () => {
+  const e = env();
+  const expectedEntry = await e.CONTENT.get("AGENTS.md").then(o => o.text());
+  const result = await briefText(e);
+
+  assert.equal(result.ok, true);
+  assert.equal(result.id, "AGENTS.md");
+  assert.ok(result.content.startsWith(expectedEntry));
+  assert.match(result.content, /## Available documents/);
+  assert.match(result.content, /### reference/);
+  assert.match(result.content, /### skills/);
+  for (const id of [
+    "reference/languages/php.md",
+    "reference/principles/code-design.md",
+    "skills/voice.md",
+    "skills/writing.md"
+  ]) {
+    assert.match(result.content, new RegExp(`\\\`${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\\``));
+  }
+  assert.match(result.content, /reference\/languages\/php\.md` — PHP — PHP style and tooling/);
+});
+
+test("brief omits empty kinds but still returns every readable document", async () => {
+  const e = env();
+  await e.CONTENT.objects.delete("skills/voice.md");
+  await e.CONTENT.objects.delete("skills/writing.md");
+
+  const result = await briefText(e);
+  assert.equal(result.ok, true);
+  assert.match(result.content, /reference\/languages\/php\.md/);
+  assert.doesNotMatch(result.content, /### skills/);
+});
+
 test("listing only includes Markdown under reference and skills", async () => {
   const e = env();
   await e.CONTENT.put("notes.txt", "not content");
   await e.CONTENT.put("reference/principles/Broken Name.md", "not content");
-  await e.CONTENT.put("skills/notes.md", "# Appraisals\n");
+  await e.CONTENT.put("skills/notes.md", "# Notes\n");
 
   assert.deepEqual(await listContent(e), [
     "reference/languages/php.md",
     "reference/principles/code-design.md",
-    "reference/principles/security.md",
     "skills/notes.md",
     "skills/voice.md",
     "skills/writing.md"
-  ]);
-});
-
-test("search without a query returns the whole catalogue", async () => {
-  const { results } = await searchContent(env(), {});
-  assert.deepEqual(
-    results.map(result => result.id),
-    [
-      "reference/languages/php.md",
-      "reference/principles/code-design.md",
-      "reference/principles/security.md",
-      "skills/voice.md",
-      "skills/writing.md"
-    ]
-  );
-});
-
-test("search matches descriptions and content, and kind filters them", async () => {
-  const e = env();
-  assert.deepEqual(
-    (await searchContent(e, { query: "write as zac" })).results.map(result => result.id),
-    ["skills/voice.md"]
-  );
-  assert.deepEqual(
-    (await searchContent(e, { query: "stale facts" })).results.map(result => result.id),
-    []
-  );
-  assert.deepEqual(
-    (await searchContent(e, { query: "strict types", kind: "reference" })).results.map(result => result.id),
-    ["reference/languages/php.md"]
-  );
-  assert.deepEqual((await searchContent(e, { query: "strict types", kind: "skills" })).results, []);
-});
-
-test("search returns matching snippets and respects the limit", async () => {
-  const e = env();
-  const one = await searchContent(e, { query: "secrets", limit: 1 });
-  assert.equal(one.results.length, 1);
-  assert.equal(one.results[0].id, "reference/principles/security.md");
-  assert.match(one.results[0].snippet, /secrets/);
-  assert.equal((await searchContent(e, { query: "secrets", limit: 100 })).results.length, 1);
+  ].sort());
 });
 
 test("read returns the exact file content and validates known ids", async () => {
