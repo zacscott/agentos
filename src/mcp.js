@@ -2,7 +2,7 @@
 //
 // Two tools, deliberately minimal:
 //   brief — return the entry document and the documents available to read.
-//   read  — return one document by id.
+//   read  — return the documents an agent asks for, in one call.
 //
 // The entry document is the behaviour specification. Tool descriptions tell
 // clients what to call; the document itself tells agents when and why to use
@@ -18,7 +18,7 @@ export function instructions() {
 
 If the operating rules are already in your context, do not call brief again.
 
-Otherwise, call brief before project work. It returns the operating manual plus the documents it can read. Call read to load only the documents you actually need. Do not invent document ids; brief lists them.`;
+Otherwise, call brief before project work. It returns the operating manual plus the documents it can read. Call read once with every document you need, rather than one call per file. Do not invent document ids; brief lists them.`;
 }
 
 const asResult = body => ({
@@ -33,7 +33,7 @@ const asText = body => ({
 
 function buildServer(env) {
   const server = new McpServer(
-    { name: "agentos", version: "2.0.0" },
+    { name: "agentos", version: "2.1.0" },
     { instructions: instructions() }
   );
 
@@ -50,12 +50,17 @@ function buildServer(env) {
   server.registerTool(
     "read",
     {
-      description: "Return one document listed by brief. The id must be one of the listed reference/ or skills/ Markdown paths.",
+      description:
+        "Return the documents you name, in one call. Pass every reference and skill you need together rather than calling once per file. Each entry is identified by the path brief listed; an id that does not exist fails only its own entry, so the rest of the batch still comes back.",
       inputSchema: {
-        id: z.string().describe("The document id returned by brief, e.g. skills/voice.md.")
+        ids: z
+          .array(z.string())
+          .min(1)
+          .max(50)
+          .describe("Document ids from brief, e.g. [\"skills/voice.md\", \"reference/principles/code-style.md\"].")
       }
     },
-    async ({ id }) => asResult(await readContent(env, id))
+    async ({ ids }) => asResult(await readContent(env, { ids }))
   );
 
   return server;

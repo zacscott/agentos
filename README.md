@@ -9,7 +9,7 @@ read-only tools:
 | Tool | Arguments | |
 |---|---|---|
 | `brief` | — | Return the entry document, unchanged, followed by a catalogue of readable documents. |
-| `read` | `id` | Return one document by its repository path. |
+| `read` | `ids` | Return each named document, in one call. |
 
 The bucket is read fresh on every request, so edits take effect immediately.
 There is no index, cache or manifest to maintain.
@@ -43,8 +43,16 @@ rewritten version of the manual.
 
 ### `read()`
 
-Returns the full Markdown file for one id listed in the catalogue. It can only
-read files that exist under `reference/` or `skills/`.
+Returns the full Markdown for each id in `ids`, in the order requested, so a
+rule and a skill load together in one call.
+
+```json
+{ "ids": ["skills/voice.md", "reference/principles/code-style.md"] }
+```
+
+Each result is `{id, kind, content}`, or `{id, ok: false, error}` when that id
+is unknown or not under `reference/` or `skills/`. One bad id fails only its
+own entry. Up to 50 documents per call.
 
 ## Deploy
 

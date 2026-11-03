@@ -129,20 +129,40 @@ test("listing only includes Markdown under reference and skills", async () => {
   ].sort());
 });
 
-test("read returns the exact file content and validates known ids", async () => {
+test("read returns every requested document in request order", async () => {
   const e = env();
-  const expected = await e.CONTENT.get("skills/writing.md").then(o => o.text());
-  const found = await readContent(e, "skills/writing.md");
+  const voice = await e.CONTENT.get("skills/voice.md").then(o => o.text());
+  const design = await e.CONTENT.get("reference/principles/code-design.md").then(o => o.text());
+
+  const found = await readContent(e, { ids: ["skills/voice.md", "reference/principles/code-design.md"] });
 
   assert.equal(found.ok, true);
-  assert.equal(found.content, expected);
-  assert.equal(found.kind, "skills");
+  assert.deepEqual(found.documents.map(d => d.id), ["skills/voice.md", "reference/principles/code-design.md"]);
+  assert.equal(found.documents[0].content, voice);
+  assert.equal(found.documents[0].kind, "skills");
+  assert.equal(found.documents[1].content, design);
+});
 
-  assert.equal((await readContent(e, "../skills/writing.md")).ok, false);
-  assert.equal((await readContent(e, "AGENTS.md")).ok, false);
-  assert.equal((await readContent(e, "skills/missing.md")).ok, false);
-  assert.equal((await readContent(e, "skills/../principles/code-design.md")).ok, false);
-  assert.equal((await readContent(e, "principles/code-design.md")).ok, false);
+test("one bad id fails only its own entry", async () => {
+  const e = env();
+  const found = await readContent(e, {
+    ids: ["skills/voice.md", "skills/missing.md", "AGENTS.md", "../skills/writing.md"]
+  });
+
+  assert.equal(found.ok, true);
+  assert.equal(found.documents[0].ok, true);
+  assert.equal(found.documents[1].ok, false);
+  assert.match(found.documents[1].error, /no document matched/);
+  assert.equal(found.documents[2].ok, false);
+  assert.match(found.documents[2].error, /reference\/ or skills\//);
+  assert.equal(found.documents[3].ok, false);
+});
+
+test("read still accepts a single id and rejects an empty or oversized request", async () => {
+  const e = env();
+  assert.deepEqual((await readContent(e, { id: "skills/voice.md" })).documents.map(d => d.id), ["skills/voice.md"]);
+  assert.equal((await readContent(e, {})).ok, false);
+  assert.equal((await readContent(e, { ids: Array.from({ length: 51 }, () => "skills/voice.md") })).ok, false);
 });
 
 test("the instructions do not name a person or this deployment", () => {

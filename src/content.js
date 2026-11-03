@@ -92,25 +92,39 @@ export async function briefText(env) {
   return { ok: true, id: entry, content: lines.join("\n") };
 }
 
-/** Read one known document. The id must be in the bucket and under a content kind. */
-export async function readContent(env, id) {
-  const key = String(id || "").trim();
-  if (!PATH.test(key)) {
-    return { ok: false, error: "id must be a known reference/ or skills/ Markdown path" };
-  }
+/**
+ * Read several documents in one call: `{ ids: [...] }` returns one entry per id
+ * in request order, so an agent can load a rule and a skill together. A missing
+ * or malformed id fails only its own entry; the rest still come back.
+ *
+ *   { ok: true, documents: [{id, kind, content}, {id, ok: false, error}] }
+ */
+export async function readContent(env, { id, ids } = {}) {
+  const requested = ids?.length ? ids : id === undefined ? [] : [id];
+  if (!requested.length) return { ok: false, error: "pass ids, or id for a single document" };
+  if (requested.length > 50) return { ok: false, error: "at most 50 documents per call" };
+
+  const keyed = requested.map(value => String(value ?? "").trim());
 
   const known = new Set(await listContent(env));
-  if (!known.has(key)) {
-    return { ok: false, error: "no document matched that id" };
+  const objects = await Promise.all(
+    keyed.map(path => (PATH.test(path) && known.has(path) ? env.CONTENT.get(path) : null))
+  );
+
+  const documents = [];
+  for (let i = 0; i < keyed.length; i++) {
+    const path = keyed[i];
+    const content = objects[i] ? await objects[i].text() : null;
+    if (content === null) {
+      documents.push({
+        id: path,
+        ok: false,
+        error: PATH.test(path) ? "no document matched that id" : "id must be a reference/ or skills/ Markdown path"
+      });
+      continue;
+    }
+    documents.push({ id: path, ok: true, kind: path.split("/")[0], content });
   }
 
-  const object = await env.CONTENT.get(key);
-  if (!object) return { ok: false, error: "no document matched that id" };
-
-  return {
-    ok: true,
-    id: key,
-    kind: key.split("/")[0],
-    content: await object.text()
-  };
+  return { ok: true, documents };
 }
