@@ -12,9 +12,9 @@
 
 export const KINDS = Object.freeze(["reference", "skills"]);
 
-const PATH = /^(reference|skills)\/[a-z0-9][a-z0-9_-]*(?:\/[a-z0-9][a-z0-9_-]*)*\.md$/;
+const PATH = /^(reference|skills)\/[a-zA-Z0-9][a-zA-Z0-9_-]*(?:\/[a-zA-Z0-9][a-zA-Z0-9_-]*)*\.md$/;
 const FRONT_MATTER = /^---\n([\s\S]*?)\n---\n?/;
-const FRONT_VALUE = /^([a-z_][a-z0-9_-]*):\s*(.*)$/;
+const FRONT_VALUE = /^([a-zA-Z_][a-zA-Z0-9_-]*):\s*(.*)$/;
 const HEADING = /^#\s+(.+?)\s*$/m;
 
 /** Parse the small YAML-like frontmatter used by the content files. */
