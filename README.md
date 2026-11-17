@@ -52,7 +52,24 @@ rule and a skill load together in one call.
 
 Each result is `{id, kind, content}`, or `{id, ok: false, error}` when that id
 is unknown or not under `reference/` or `skills/`. One bad id fails only its
-own entry. Up to 50 documents per call.
+own entry. Up to 50 ids per call; mentions can add more documents to the
+response.
+
+A document pulls in another by naming it as `@reference/...` or `@skills/...`
+in its Markdown, so a skill and the principles it depends on load together:
+
+```markdown
+Read @reference/principles/code-style.md before you start.
+```
+
+Included documents follow the requested ones, in the order they were first
+named. Each comes back as its own entry with `includedBy` set to the document
+that named it, and they are returned once each. Their own mentions are followed
+too. A mention that names a missing document adds an `ok: false` entry and the
+rest still come back.
+
+A mention inside inline code or a fenced block is an example, not an include,
+so `` `@reference/principles/code-style.md` `` stays literal.
 
 ## Deploy
 

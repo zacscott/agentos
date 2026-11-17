@@ -143,6 +143,108 @@ test("read returns every requested document in request order", async () => {
   assert.equal(found.documents[1].content, design);
 });
 
+test("read follows @mentions and returns them after the requested documents", async () => {
+  const e = env();
+  await e.CONTENT.put(
+    "skills/deep.md",
+    "# Deep\n\nRead @reference/principles/code-design.md first, then @reference/principles/code-design.md again.\n"
+  );
+
+  const found = await readContent(e, { ids: ["skills/deep.md"] });
+
+  assert.equal(found.ok, true);
+  assert.deepEqual(found.documents.map(d => d.id), [
+    "skills/deep.md",
+    "reference/principles/code-design.md"
+  ]);
+  assert.equal(found.documents[0].includedBy, undefined);
+  assert.equal(found.documents[1].includedBy, "skills/deep.md");
+  assert.equal(found.documents[1].kind, "reference");
+  assert.equal(
+    found.documents[1].content,
+    await e.CONTENT.get("reference/principles/code-design.md").then(o => o.text())
+  );
+});
+
+test("mentions are followed through included documents and cycles stop", async () => {
+  const e = env();
+  await e.CONTENT.put("skills/a.md", "# A\n\nSee @reference/principles/b.md and @skills/a.md.\n");
+  await e.CONTENT.put("reference/principles/b.md", "# B\n\nSee @reference/principles/c.md and @skills/a.md.\n");
+  await e.CONTENT.put("reference/principles/c.md", "# C\n");
+
+  const found = await readContent(e, { ids: ["skills/a.md"] });
+
+  assert.deepEqual(found.documents.map(d => d.id), [
+    "skills/a.md",
+    "reference/principles/b.md",
+    "reference/principles/c.md"
+  ]);
+  assert.equal(found.documents[1].includedBy, "skills/a.md");
+  assert.equal(found.documents[2].includedBy, "reference/principles/b.md");
+});
+
+test("mentions inside inline code or a fenced block are examples", async () => {
+  const e = env();
+  await e.CONTENT.put("skills/code.md", [
+    "# Code",
+    "",
+    "Inline `@reference/principles/code-design.md` is an example.",
+    "",
+    "Double backticks ``@reference/languages/php.md`` are too.",
+    "",
+    "A span can run over",
+    "lines: `@reference/principles/absent.md",
+    "still code` and it stays literal.",
+    "",
+    "````markdown",
+    "```",
+    "@reference/principles/absent.md",
+    "```",
+    "````",
+    "",
+    "A stray ` does not hide @skills/voice.md.",
+    "",
+    "A second stray ` does not hide @skills/writing.md.",
+    ""
+  ].join("\n"));
+
+  const found = await readContent(e, { ids: ["skills/code.md"] });
+
+  assert.deepEqual(found.documents.map(d => d.id), [
+    "skills/code.md",
+    "skills/voice.md",
+    "skills/writing.md"
+  ]);
+});
+
+test("a mention of a missing document fails only its own entry", async () => {
+  const e = env();
+  await e.CONTENT.put("skills/missing.md", "# Missing\n\nSee @reference/principles/absent.md.\n");
+
+  const found = await readContent(e, { ids: ["skills/missing.md"] });
+
+  assert.equal(found.ok, true);
+  assert.equal(found.documents[0].ok, true);
+  assert.equal(found.documents[1].ok, false);
+  assert.equal(found.documents[1].id, "reference/principles/absent.md");
+  assert.equal(found.documents[1].includedBy, "skills/missing.md");
+});
+
+test("a document that is both requested and mentioned comes back once", async () => {
+  const e = env();
+  await e.CONTENT.put("skills/needs-design.md", "# Needs design\n\nSee @reference/principles/code-design.md.\n");
+
+  const found = await readContent(e, {
+    ids: ["reference/principles/code-design.md", "skills/needs-design.md"]
+  });
+
+  assert.deepEqual(found.documents.map(d => d.id), [
+    "reference/principles/code-design.md",
+    "skills/needs-design.md"
+  ]);
+  assert.equal(found.documents[0].includedBy, undefined);
+});
+
 test("one bad id fails only its own entry", async () => {
   const e = env();
   const found = await readContent(e, {

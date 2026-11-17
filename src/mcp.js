@@ -18,7 +18,9 @@ export function instructions() {
 
 If the operating rules are already in your context, do not call brief again.
 
-Otherwise, call brief before project work. It returns the operating manual plus the documents it can read. Call read once with every document you need, rather than one call per file. Do not invent document ids; brief lists them.`;
+Otherwise, call brief before project work. It returns the operating manual plus the documents it can read. Call read once with every document you need, rather than one call per file. Do not invent document ids; brief lists them.
+
+A document can name another as @reference/... or @skills/... in its text. read returns those documents in the same call, with includedBy set to the document that named them, so one call loads a document and what it depends on.`;
 }
 
 const asResult = body => ({
@@ -33,7 +35,7 @@ const asText = body => ({
 
 function buildServer(env) {
   const server = new McpServer(
-    { name: "agentos", version: "2.1.0" },
+    { name: "agentos", version: "2.2.0" },
     { instructions: instructions() }
   );
 
@@ -51,7 +53,7 @@ function buildServer(env) {
     "read",
     {
       description:
-        "Return the documents you name, in one call. Pass every reference and skill you need together rather than calling once per file. Each entry is identified by the path brief listed; an id that does not exist fails only its own entry, so the rest of the batch still comes back.",
+        "Return the documents you name, in one call. Pass every reference and skill you need together rather than calling once per file. A document that names another as @reference/... or @skills/... pulls it in; those come back after the requested documents with includedBy set, and their own mentions are followed too. Each entry is identified by the path brief listed; an id that does not exist fails only its own entry, so the rest of the batch still comes back.",
       inputSchema: {
         ids: z
           .array(z.string())
