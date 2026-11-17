@@ -57,7 +57,7 @@ function buildServer(env) {
           .array(z.string())
           .min(1)
           .max(50)
-          .describe("Document ids from brief, e.g. [\"skills/voice.md\", \"reference/principles/code-style.md\"].")
+          .describe("Document ids from brief, e.g. [\"skills/voice/SKILL.md\", \"reference/principles/code-style.md\"].")
       }
     },
     async ({ ids }) => asResult(await readContent(env, { ids }))
